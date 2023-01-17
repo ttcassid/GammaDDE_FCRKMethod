@@ -29,35 +29,35 @@ PA.K = 2; % Also in compareLInfinity script
 F = @(x,d) x-x*d/PA.K;  
 phi = @(t) 0.5; 
 
-[sol, mySol, times, ERRGlob] = compareLinfty(F, phi, tau, j, TMin, TMax, 1e-1, 6, 4, 1, 0, 2) 
+% [sol, mySol, times, ERRGlob] = compareLinfty(F, phi, tau, j, TMin, TMax, 1e-1, 6, 4, 1, 0, 2) 
 %% Comparison for linearization
 
-% tau =  4.25; % 1.25;
-% j = 2.25; % 7.5; % 3.85;
-% 
-% a = j/tau;
-% beta = 0.5; 
-% Lambda = (beta*a^j)^(1/(j+1))-a; 
-% phi = @(t) 1*exp(Lambda*t);
-% 
-% % % The RHS of the DE is in odefun  where d is the delayed argument via the convolution integral
-% F = @(x,d) -(j/tau).*x + beta*d;
-% 
-% exactSol = @(t) 1*exp(Lambda*t);
-% 
- [sol, mySol, times, ERRGlob] = compareLinfty(F, phi, tau, j, TMin, TMax, 1e-1, 6, 4, 1, 1, exactSol)
+tau =  4.25; % 1.25;
+j = 2.25; % 7.5; % 3.85;
+
+a = j/tau;
+beta = 0.5; 
+Lambda = (beta*a^j)^(1/(j+1))-a; 
+phi = @(t) 1*exp(Lambda*t);
+
+% % The RHS of the DE is in odefun  where d is the delayed argument via the convolution integral
+F = @(x,d) -(j/tau).*x + beta*d;
+
+exactSol = @(t) 1*exp(Lambda*t);
+
+[sol, mySol, times, ERRGlob] = compareLinfty(F, phi, tau, j, TMin, TMax, 1e-1, 6, 4, 1, 1, exactSol)
 
 
 %% Exact solution of linear differential equation
 % tau =  1;  
 % j = 1.0;  
-
-% The RHS of the DE is in odefun  where d is the delayed argument via the convolution integral
+% 
+% % The RHS of the DE is in odefun  where d is the delayed argument via the convolution integral
 % F = @(x,d) 0.8*x-1.1*d;
 % 
 % exactSol = @(t) exp(-t./10).*(cos(sqrt(29).*t./10)- (2/sqrt(29)).*sin(sqrt(29).*t./10) );
-
- [sol, mySol, times, ERRGlob] = compareLinfty(F, phi, tau, j, TMin, TMax, 1e-1, 6, 4, 1, 1, exactSol)
+% 
+%  [sol, mySol, times, ERRGlob] = compareLinfty(F, phi, tau, j, TMin, TMax, 1e-1, 6, 4, 1, 1, exactSol)
 
 function [sol, mySol, times, ERRGlob] = compareLinfty(F, phi, tau, j, TMin, TMax, maxH, maxSteps, order, probNumber, exact, exactsol)
 % This is a function that generates a convergence error plot for FCRK  solvers with fixed stepsize. 
@@ -78,26 +78,26 @@ function [sol, mySol, times, ERRGlob] = compareLinfty(F, phi, tau, j, TMin, TMax
 
     hist = strrep(char(phi), '@(t)', '');
     rhs = strrep(char(F), '@(x,d)', '');
-    %phi is a function handle, multiply it against the gamma distribution
-    %function
-    a = j/tau;
-    y_0 = zeros(j+1, 1);
-    y_0(1) = phi(0);
-    t = sym('t');
-    mySol=0;
-    PA.K = 2;
-    for i = 2 : j+1
-    %the contents of this for loop are for finding the vector of initial
-    %values for ode23 or ode45, as the case may be
-%        g = @(t) exp(-a.*t) .* t.^(i-2);
-%        h = @(t) g(t).*phi(-t);
-%        initialVal = integral(h, 0, Inf,'RelTol',1e-15);
-       g(t) = exp(-a*t) .* t^(i-2) ;
-       h(t) = g.*phi(-t);
-       initialVal = eval(int(h, t, 0, Inf));
-       y_0(i) = (a.^(i-1))./gamma(i-1) .*initialVal/a;
+    %phi is a function handle, multiply it against the gamma distribution function
+    if exact == 0
+        a = j/tau;
+        y_0 = zeros(j+1, 1);
+        y_0(1) = phi(0);
+        t = sym('t');
+        mySol=0;
+        PA.K = 2;
+        for i = 2 : j+1
+            %the contents of this for loop are for finding the vector of initial
+            %values for ode23 or ode45, as the case may be
+            %        g = @(t) exp(-a.*t) .* t.^(i-2);
+            %        h = @(t) g(t).*phi(-t);
+            %        initialVal = integral(h, 0, Inf,'RelTol',1e-15);
+            g(t) = exp(-a*t) .* t^(i-2) ;
+            h(t) = g.*phi(-t);
+            initialVal = eval(int(h, t, 0, Inf));
+            y_0(i) = (a.^(i-1))./gamma(i-1) .*initialVal/a;
+        end
     end
-    
     %these next two lines compute the ode23 and RK2Solver solutions (if we
     %don't provide an exact solution. we don't bother using ode45 if we are
     %only testing a 2nd order or lower fixed stepsize method
@@ -152,16 +152,17 @@ function [sol, mySol, times, ERRGlob] = compareLinfty(F, phi, tau, j, TMin, TMax
         if exact == 0 %if we don't have an exact solution, compare with the numerical one we generated earlier (ode23 or ode45's solution is used)
             diff = abs(mySol.y(:, 1) - deval(sol, (mySol.x)', 1)');
         else
+            sol = exactsol(mySol.x);
             diff = abs(mySol.y(:, 1) - exactsol(mySol.x));
         end
         MAX = max(diff);
         ERRGlob(i + 1, 1) = log(h)./log(10); %fill first column with the step size
-        ERRGlob(i + 1, 2) = log(MAX)./log(10); %fill the second column with the error
+        ERRGlob(i + 1, 2) = max(log(MAX)./log(10),log(eps)./log(10)); %fill the second column with the error
     end
 
     FIG = figure();
-        
-    p1 = polyfit(ERRGlob(:, 1),ERRGlob(:,2), 1);
+    LinearFitIndex = find(ERRGlob(:,2) > log(eps)./log(10)); % Only fit the line to points with L1 error greater than machine precision
+    p1 = polyfit(ERRGlob(LinearFitIndex, 1),ERRGlob(LinearFitIndex,2), 1);
     
     fit1 = @(x) p1(2) + p1(1).*x;
     
